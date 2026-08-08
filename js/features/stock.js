@@ -59,7 +59,11 @@ function stockRowHtml(item) {
         <img class="stock-thumb" src="${item.photoDataUrl}" alt="" />
         <div class="item-info">
           <div class="item-title">${escapeHtml(item.name || "بدون اسم")}</div>
-          <div class="item-sub">سعر الشراء: ${item.costPrice.toLocaleString("en-US")} · ${item.purchaseDate}</div>
+          <div class="price-row">
+            <span class="price-label">سعر الشراء:</span>
+            <span class="price-box price-box-green">${item.costPrice.toLocaleString("en-US")}</span>
+          </div>
+          <div class="item-sub">${item.purchaseDate}</div>
         </div>
         <button class="item-delete" data-action="delete" data-id="${item.id}">✕</button>
       </div>

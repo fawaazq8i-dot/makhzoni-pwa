@@ -17,6 +17,32 @@
   flex-shrink: 0;
 }
 
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.price-label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.price-box {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-box-green {
+  background: var(--green);
+  color: var(--bg);
+}
+
 .sell-form {
   margin-top: var(--space-3);
   padding-top: var(--space-3);
