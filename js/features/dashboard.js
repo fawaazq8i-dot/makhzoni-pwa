@@ -5,11 +5,45 @@ import { getProductsBySoldDate, getProductsByStatus, returnProduct } from "../db
 let rootEl = null;
 let showAllView = false;
 let allViewMode = "day"; // "day" | "month"
+let expandedMonth = null;
 
 function escapeHtml(s) {
   const div = document.createElement("div");
   div.textContent = s;
   return div.innerHTML;
+}
+
+// Shared item card for any list of sold products (day view, expanded month).
+function soldItemCardHtml(p) {
+  const margin = p.sellPrice - p.costPrice;
+  return `
+    <div class="card stock-row">
+      <div class="stock-row-top">
+        <img class="stock-thumb" src="${p.photoDataUrl}" alt="" />
+        <div class="item-info">
+          <div class="item-title">${escapeHtml(p.name || "بدون اسم")}</div>
+          <div class="price-row">
+            <span class="price-label">سعر البيع:</span>
+            <span class="price-box price-box-green">${p.sellPrice.toLocaleString("en-US")}</span>
+          </div>
+          <div class="item-sub">شراء: ${p.costPrice.toLocaleString("en-US")} ·
+            <span style="color: var(--${margin >= 0 ? "green" : "red"});">${margin >= 0 ? "ربح" : "خسارة"} ${Math.abs(margin).toLocaleString("en-US")}</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-outline btn-block" data-action="return" data-id="${p.id}" style="margin-top:10px;">↩ إرجاع / استبدال (يعيده للمخزون)</button>
+    </div>
+  `;
+}
+
+function wireReturnButtons(container, onDone) {
+  container.querySelectorAll('[data-action="return"]').forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      await returnProduct(btn.dataset.id);
+      showToast("تم إرجاع المنتج للمخزون");
+      onDone();
+    })
+  );
 }
 
 export async function getDaySummary(dateKey) {
@@ -29,11 +63,9 @@ export async function getCurrentCapital() {
   return inStock.reduce((sum, p) => sum + p.costPrice, 0);
 }
 
-// Groups every sold product by soldDate — total sold (revenue) and net
-// profit per day, newest first. Base data for both the "الأيام" and
-// "الأشهر" views (months are just this, grouped further by "YYYY-MM").
-async function getAllDaysSummary() {
-  const sold = await getProductsByStatus("sold");
+// Groups a flat list of sold products by soldDate — total sold (revenue)
+// and net profit per day, newest first.
+function groupByDay(sold) {
   const byDate = {};
   for (const p of sold) {
     if (!byDate[p.soldDate]) byDate[p.soldDate] = { revenue: 0, profit: 0, loss: 0, count: 0 };
@@ -49,17 +81,17 @@ async function getAllDaysSummary() {
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
-function groupByMonth(days) {
+function groupByMonth(sold) {
   const byMonth = {};
-  for (const d of days) {
-    const monthKey = d.date.slice(0, 7);
-    if (!byMonth[monthKey]) byMonth[monthKey] = { revenue: 0, profit: 0, loss: 0, count: 0, dates: [] };
+  for (const p of sold) {
+    const monthKey = p.soldDate.slice(0, 7);
+    if (!byMonth[monthKey]) byMonth[monthKey] = { revenue: 0, profit: 0, loss: 0, count: 0 };
     const m = byMonth[monthKey];
-    m.revenue += d.revenue;
-    m.profit += d.profit;
-    m.loss += d.loss;
-    m.count += d.count;
-    m.dates.push(d.date);
+    m.revenue += p.sellPrice;
+    m.count += 1;
+    const diff = p.sellPrice - p.costPrice;
+    if (diff > 0) m.profit += diff;
+    else if (diff < 0) m.loss += -diff;
   }
   return Object.entries(byMonth)
     .map(([month, stats]) => ({ month, ...stats }))
@@ -69,6 +101,7 @@ function groupByMonth(days) {
 export function mountDashboard(el) {
   rootEl = el;
   showAllView = false;
+  expandedMonth = null;
   render();
 
   const allViewBtn = document.getElementById("btn-all-days");
@@ -140,35 +173,8 @@ async function renderSoldList(dateKey) {
     return;
   }
 
-  listEl.innerHTML = sold
-    .map((p) => {
-      const margin = p.sellPrice - p.costPrice;
-      return `
-        <div class="card stock-row">
-          <div class="stock-row-top">
-            <img class="stock-thumb" src="${p.photoDataUrl}" alt="" />
-            <div class="item-info">
-              <div class="item-title">${escapeHtml(p.name || "بدون اسم")}</div>
-              <div class="item-sub">شراء: ${p.costPrice.toLocaleString("en-US")} · بيع: ${p.sellPrice.toLocaleString("en-US")}
-                · <span style="color: var(--${margin >= 0 ? "green" : "red"});">${margin >= 0 ? "ربح" : "خسارة"} ${Math.abs(margin).toLocaleString("en-US")}</span>
-              </div>
-            </div>
-          </div>
-          <button class="btn btn-sm btn-outline btn-block" data-action="return" data-id="${p.id}" style="margin-top:10px;">↩ إرجاع / استبدال (يعيده للمخزون)</button>
-        </div>
-      `;
-    })
-    .join("");
-
-  listEl.querySelectorAll('[data-action="return"]').forEach((btn) =>
-    btn.addEventListener("click", () => onReturn(btn.dataset.id, dateKey))
-  );
-}
-
-async function onReturn(id, dateKey) {
-  await returnProduct(id);
-  showToast("تم إرجاع المنتج للمخزون");
-  renderStats();
+  listEl.innerHTML = sold.map(soldItemCardHtml).join("");
+  wireReturnButtons(listEl, () => renderStats());
 }
 
 async function renderAllView() {
@@ -191,25 +197,27 @@ async function renderAllView() {
   rootEl.querySelectorAll("#all-view-tabs .seg-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
       allViewMode = btn.dataset.mode;
+      expandedMonth = null;
       renderAllView();
     })
   );
 
-  const days = await getAllDaysSummary();
+  const sold = await getProductsByStatus("sold");
   const listEl = rootEl.querySelector("#all-list");
-  if (!days.length) {
+  if (!sold.length) {
     listEl.innerHTML = `<div class="empty-state">لا توجد مبيعات مسجّلة بعد</div>`;
     return;
   }
 
   if (allViewMode === "month") {
-    renderMonthRows(listEl, days);
+    renderMonthRows(listEl, sold);
   } else {
-    renderDayRows(listEl, days);
+    renderDayRows(listEl, sold);
   }
 }
 
-function renderDayRows(listEl, days) {
+function renderDayRows(listEl, sold) {
+  const days = groupByDay(sold);
   listEl.innerHTML = days
     .map(
       (d) => `
@@ -236,35 +244,45 @@ function renderDayRows(listEl, days) {
   );
 }
 
-function renderMonthRows(listEl, days) {
-  const months = groupByMonth(days);
+function renderMonthRows(listEl, sold) {
+  const months = groupByMonth(sold);
   listEl.innerHTML = months
-    .map(
-      (m) => `
-    <button class="card all-days-row" data-month="${m.month}">
-      <div class="item-info">
-        <div class="item-title">${formatMonthLabel(m.month)}</div>
-        <div class="item-sub">${m.count} ${m.count === 1 ? "منتج" : "منتجات"}</div>
-      </div>
-      <div class="all-days-amounts">
-        <div class="price-box price-box-green">المجموع: ${m.revenue.toLocaleString("en-US")}</div>
-        <div class="item-sub" style="margin-top:4px; color: var(--${m.profit - m.loss >= 0 ? "green" : "red"});">صافي: ${(m.profit - m.loss).toLocaleString("en-US")}</div>
-      </div>
-    </button>
-  `
-    )
+    .map((m) => {
+      const isOpen = expandedMonth === m.month;
+      const itemsHtml = isOpen
+        ? sold
+            .filter((p) => p.soldDate.slice(0, 7) === m.month)
+            .sort((a, b) => b.soldDate.localeCompare(a.soldDate))
+            .map(soldItemCardHtml)
+            .join("")
+        : "";
+      return `
+        <button class="card all-days-row" data-month="${m.month}">
+          <div class="item-info">
+            <div class="item-title">${formatMonthLabel(m.month)} ${isOpen ? "▾" : "▸"}</div>
+            <div class="item-sub">${m.count} ${m.count === 1 ? "منتج" : "منتجات"}</div>
+          </div>
+          <div class="all-days-amounts">
+            <div class="price-box price-box-green">المجموع: ${m.revenue.toLocaleString("en-US")}</div>
+            <div class="item-sub" style="margin-top:4px; color: var(--${m.profit - m.loss >= 0 ? "green" : "red"});">صافي: ${(m.profit - m.loss).toLocaleString("en-US")}</div>
+          </div>
+        </button>
+        ${isOpen ? `<div class="month-items">${itemsHtml}</div>` : ""}
+      `;
+    })
     .join("");
 
   listEl.querySelectorAll(".all-days-row[data-month]").forEach((row) =>
     row.addEventListener("click", () => {
-      // Jump to the most recent day within that month.
-      const monthDates = months.find((m) => m.month === row.dataset.month).dates;
-      const mostRecent = [...monthDates].sort((a, b) => b.localeCompare(a))[0];
-      setSelectedDate(mostRecent);
-      showAllView = false;
-      render();
+      const month = row.dataset.month;
+      expandedMonth = expandedMonth === month ? null : month;
+      renderMonthRows(listEl, sold);
     })
   );
+  wireReturnButtons(listEl, async () => {
+    const freshSold = await getProductsByStatus("sold");
+    renderMonthRows(listEl, freshSold);
+  });
 }
 
 export function unmountDashboard() {}
