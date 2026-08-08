@@ -1,0 +1,29 @@
+:root {
+  --bg: #0b0f14;
+  --surface: #121822;
+  --surface-2: #1b2430;
+  --border: #242e3a;
+  --text: #eef2f6;
+  --text-dim: #93a1ae;
+  --accent: #f2c14e;
+  --accent-dim: #b8912f;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --red: #ef4444;
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --font-ui: "Cairo", system-ui, sans-serif;
+
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}

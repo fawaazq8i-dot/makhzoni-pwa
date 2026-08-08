@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <title>مخزوني</title>
+  <meta name="description" content="تتبّع شراء وبيع المنتجات بالصور، مع ملخص ربح وخسارة يومي" />
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0b0f14" />
+
+  <!-- iOS-specific PWA meta (manifest alone isn't fully honored by iOS Safari) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="مخزوني" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" />
+
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/addProduct.css" />
+  <link rel="stylesheet" href="css/stock.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+  <div id="app">
+
+    <section id="view-add" class="view">
+      <h1 class="page-title">إضافة منتج</h1>
+      <div id="add-root"></div>
+    </section>
+
+    <section id="view-stock" class="view">
+      <h1 class="page-title">المخزون</h1>
+      <div id="stock-root"></div>
+    </section>
+
+    <section id="view-dashboard" class="view">
+      <h1 class="page-title">الملخص اليومي</h1>
+      <div id="dashboard-root"></div>
+    </section>
+
+    <nav id="bottom-nav">
+      <button class="nav-btn" data-view="add"><span class="nav-icon">📷</span><span>إضافة منتج</span></button>
+      <button class="nav-btn" data-view="stock"><span class="nav-icon">📦</span><span>المخزون</span></button>
+      <button class="nav-btn" data-view="dashboard"><span class="nav-icon">📊</span><span>الملخص</span></button>
+    </nav>
+
+    <div id="toast"><div class="msg" id="toast-msg"></div></div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
