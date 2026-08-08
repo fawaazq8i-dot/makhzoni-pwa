@@ -1,6 +1,7 @@
 const DB_NAME = "makhzoni-db";
-const DB_VERSION = 1;
-const STORE = "products";
+const DB_VERSION = 2;
+const PRODUCTS_STORE = "products";
+const LOCATIONS_STORE = "locations";
 
 let dbPromise = null;
 
@@ -10,9 +11,14 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      const store = db.createObjectStore(STORE, { keyPath: "id" });
-      store.createIndex("status", "status", { unique: false });
-      store.createIndex("soldDate", "soldDate", { unique: false });
+      if (!db.objectStoreNames.contains(PRODUCTS_STORE)) {
+        const products = db.createObjectStore(PRODUCTS_STORE, { keyPath: "id" });
+        products.createIndex("status", "status", { unique: false });
+        products.createIndex("soldDate", "soldDate", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(LOCATIONS_STORE)) {
+        db.createObjectStore(LOCATIONS_STORE, { keyPath: "id" });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -27,26 +33,26 @@ function wrap(request) {
   });
 }
 
-async function store(mode) {
+async function getStore(name, mode) {
   const db = await openDB();
-  return db.transaction(STORE, mode).objectStore(STORE);
+  return db.transaction(name, mode).objectStore(name);
 }
 
 export async function addProduct(record) {
-  return wrap((await store("readwrite")).add(record));
+  return wrap((await getStore(PRODUCTS_STORE, "readwrite")).add(record));
 }
 
 export async function getProduct(id) {
-  return wrap((await store("readonly")).get(id));
+  return wrap((await getStore(PRODUCTS_STORE, "readonly")).get(id));
 }
 
 // Merges patch into the existing record. Note: a key present in `patch`
 // with value `undefined` will still overwrite (spread keeps it), so callers
 // that need to *remove* a field (e.g. clearing soldDate) should not rely on
-// this — this app only ever adds fields via patch (marking sold), never
-// removes them, so that's not a concern here.
+// this — this app only ever adds/overwrites fields via patch, never removes
+// them, so that's not a concern here.
 export async function updateProduct(id, patch) {
-  const s = await store("readwrite");
+  const s = await getStore(PRODUCTS_STORE, "readwrite");
   const existing = await wrap(s.get(id));
   if (!existing) return;
   return wrap(s.put({ ...existing, ...patch }));
@@ -57,7 +63,7 @@ export async function updateProduct(id, patch) {
 // only excludes a record when the property is absent, so a lingering null
 // would keep wrongly matching day-summary queries for the old sold date.
 export async function returnProduct(id) {
-  const s = await store("readwrite");
+  const s = await getStore(PRODUCTS_STORE, "readwrite");
   const existing = await wrap(s.get(id));
   if (!existing) return;
   const { sellPrice, soldDate, ...rest } = existing;
@@ -66,13 +72,46 @@ export async function returnProduct(id) {
 }
 
 export async function deleteProduct(id) {
-  return wrap((await store("readwrite")).delete(id));
+  return wrap((await getStore(PRODUCTS_STORE, "readwrite")).delete(id));
 }
 
 export async function getProductsByStatus(status) {
-  return wrap((await store("readonly")).index("status").getAll(status));
+  return wrap((await getStore(PRODUCTS_STORE, "readonly")).index("status").getAll(status));
 }
 
 export async function getProductsBySoldDate(dateKey) {
-  return wrap((await store("readonly")).index("soldDate").getAll(dateKey));
+  return wrap((await getStore(PRODUCTS_STORE, "readonly")).index("soldDate").getAll(dateKey));
+}
+
+// خانات (warehouse bins/sections) — not indexed on products since the list
+// is always small; grouping is done in JS by locationId.
+export async function getLocations() {
+  const all = await wrap((await getStore(LOCATIONS_STORE, "readonly")).getAll());
+  return all.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function addLocation(name) {
+  const record = { id: crypto.randomUUID(), name, createdAt: Date.now() };
+  await wrap((await getStore(LOCATIONS_STORE, "readwrite")).add(record));
+  return record;
+}
+
+export async function renameLocation(id, name) {
+  const s = await getStore(LOCATIONS_STORE, "readwrite");
+  const existing = await wrap(s.get(id));
+  if (!existing) return;
+  return wrap(s.put({ ...existing, name }));
+}
+
+// Deletes the location and unassigns any products that were in it, so they
+// fall back to "بدون خانة" instead of pointing at a location that no longer exists.
+export async function deleteLocation(id) {
+  const productsStore = await getStore(PRODUCTS_STORE, "readwrite");
+  const allProducts = await wrap(productsStore.getAll());
+  for (const p of allProducts) {
+    if (p.locationId === id) {
+      await wrap(productsStore.put({ ...p, locationId: null }));
+    }
+  }
+  return wrap((await getStore(LOCATIONS_STORE, "readwrite")).delete(id));
 }

@@ -48,3 +48,28 @@
   padding-top: var(--space-3);
   border-top: 1px solid var(--border);
 }
+
+.location-assign-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.location-assign-row select {
+  flex: 1;
+}
+
+.stock-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+.stock-section-title:first-child {
+  margin-top: 0;
+}
