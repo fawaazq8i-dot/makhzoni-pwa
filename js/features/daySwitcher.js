@@ -34,7 +34,7 @@ export function formatLabel(dateKey) {
   const [y, m, d] = dateKey.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   const isToday = dateKey === storage.todayKey();
-  return `${WEEKDAYS_LONG[dt.getDay()]}، ${d} ${MONTHS[m - 1]}${isToday ? " (اليوم)" : ""}`;
+  return `${WEEKDAYS_LONG[dt.getDay()]}، ${d} ${MONTHS[m - 1]} ${y}${isToday ? " (اليوم)" : ""}`;
 }
 
 // monthKey is "YYYY-MM" (e.g. the first 7 chars of a dateKey).
