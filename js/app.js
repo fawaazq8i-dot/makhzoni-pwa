@@ -1,7 +1,7 @@
 import { initRouter, router } from "./router.js";
 import { mountAddProduct, unmountAddProduct } from "./features/addProduct.js";
 import { mountStock, unmountStock } from "./features/stock.js";
-import { mountDashboard } from "./features/dashboard.js";
+import { mountDashboard, unmountDashboard } from "./features/dashboard.js";
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
@@ -38,6 +38,7 @@ function init() {
     else unmountStock();
 
     if (view === "dashboard") mountDashboard(document.getElementById("dashboard-root"));
+    else unmountDashboard();
   });
 }
 

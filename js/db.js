@@ -52,6 +52,19 @@ export async function updateProduct(id, patch) {
   return wrap(s.put({ ...existing, ...patch }));
 }
 
+// Reverses a sale: back to "in-stock" with sellPrice/soldDate fully removed
+// (not set to null) — same indexing rule as addProduct: the soldDate index
+// only excludes a record when the property is absent, so a lingering null
+// would keep wrongly matching day-summary queries for the old sold date.
+export async function returnProduct(id) {
+  const s = await store("readwrite");
+  const existing = await wrap(s.get(id));
+  if (!existing) return;
+  const { sellPrice, soldDate, ...rest } = existing;
+  rest.status = "in-stock";
+  return wrap(s.put(rest));
+}
+
 export async function deleteProduct(id) {
   return wrap((await store("readwrite")).delete(id));
 }
