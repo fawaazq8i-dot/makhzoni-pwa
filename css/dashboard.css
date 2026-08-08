@@ -1,1 +1,28 @@
 /* Dashboard reuses .stat-grid/.stat-tile and .date-switcher from components.css. */
+
+.all-days-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.all-days-title {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.all-days-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: start;
+  font-family: inherit;
+}
+
+.all-days-amounts {
+  text-align: end;
+  flex-shrink: 0;
+}

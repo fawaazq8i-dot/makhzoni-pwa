@@ -19,6 +19,10 @@ export function getSelectedDate() {
   return currentDateKey;
 }
 
+export function setSelectedDate(dateKey) {
+  currentDateKey = dateKey;
+}
+
 function shiftDay(delta) {
   const [y, m, d] = currentDateKey.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
@@ -26,7 +30,7 @@ function shiftDay(delta) {
   currentDateKey = storage.todayKey(dt);
 }
 
-function formatLabel(dateKey) {
+export function formatLabel(dateKey) {
   const [y, m, d] = dateKey.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   const isToday = dateKey === storage.todayKey();

@@ -1,8 +1,9 @@
 import { showToast } from "../toast.js";
-import { mountDaySwitcher, getSelectedDate } from "./daySwitcher.js";
+import { mountDaySwitcher, getSelectedDate, setSelectedDate, formatLabel } from "./daySwitcher.js";
 import { getProductsBySoldDate, getProductsByStatus, returnProduct } from "../db.js";
 
 let rootEl = null;
+let showAllDays = false;
 
 function escapeHtml(s) {
   const div = document.createElement("div");
@@ -27,12 +28,45 @@ export async function getCurrentCapital() {
   return inStock.reduce((sum, p) => sum + p.costPrice, 0);
 }
 
+// Groups every sold product by soldDate for the "كل الأيام" list — total
+// sold (revenue) and net profit per day, newest first.
+async function getAllDaysSummary() {
+  const sold = await getProductsByStatus("sold");
+  const byDate = {};
+  for (const p of sold) {
+    if (!byDate[p.soldDate]) byDate[p.soldDate] = { revenue: 0, profit: 0, loss: 0, count: 0 };
+    const entry = byDate[p.soldDate];
+    entry.revenue += p.sellPrice;
+    entry.count += 1;
+    const diff = p.sellPrice - p.costPrice;
+    if (diff > 0) entry.profit += diff;
+    else if (diff < 0) entry.loss += -diff;
+  }
+  return Object.entries(byDate)
+    .map(([date, stats]) => ({ date, ...stats }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export function mountDashboard(el) {
   rootEl = el;
+  showAllDays = false;
   render();
+
+  const allDaysBtn = document.getElementById("btn-all-days");
+  if (allDaysBtn) {
+    allDaysBtn.onclick = () => {
+      showAllDays = !showAllDays;
+      render();
+    };
+  }
 }
 
 function render() {
+  if (showAllDays) {
+    renderAllDaysView();
+    return;
+  }
+
   rootEl.innerHTML = `<div id="dashboard-day-switcher"></div>`;
   mountDaySwitcher(rootEl.querySelector("#dashboard-day-switcher"), () => renderStats());
 
@@ -116,6 +150,52 @@ async function onReturn(id, dateKey) {
   await returnProduct(id);
   showToast("تم إرجاع المنتج للمخزون");
   renderStats();
+}
+
+async function renderAllDaysView() {
+  rootEl.innerHTML = `
+    <div class="all-days-header">
+      <button class="btn btn-sm btn-outline" id="btn-back-to-day">‹ رجوع لليوم</button>
+      <div class="all-days-title">كل الأيام</div>
+    </div>
+    <div id="all-days-list"><div class="spinner"></div></div>
+  `;
+  rootEl.querySelector("#btn-back-to-day").addEventListener("click", () => {
+    showAllDays = false;
+    render();
+  });
+
+  const days = await getAllDaysSummary();
+  const listEl = rootEl.querySelector("#all-days-list");
+  if (!days.length) {
+    listEl.innerHTML = `<div class="empty-state">لا توجد مبيعات مسجّلة بعد</div>`;
+    return;
+  }
+
+  listEl.innerHTML = days
+    .map(
+      (d) => `
+    <button class="card all-days-row" data-date="${d.date}">
+      <div class="item-info">
+        <div class="item-title">${formatLabel(d.date)}</div>
+        <div class="item-sub">${d.count} ${d.count === 1 ? "منتج" : "منتجات"}</div>
+      </div>
+      <div class="all-days-amounts">
+        <div class="price-box price-box-green">المجموع: ${d.revenue.toLocaleString("en-US")}</div>
+        <div class="item-sub" style="margin-top:4px; color: var(--${d.profit - d.loss >= 0 ? "green" : "red"});">صافي: ${(d.profit - d.loss).toLocaleString("en-US")}</div>
+      </div>
+    </button>
+  `
+    )
+    .join("");
+
+  listEl.querySelectorAll(".all-days-row").forEach((row) =>
+    row.addEventListener("click", () => {
+      setSelectedDate(row.dataset.date);
+      showAllDays = false;
+      render();
+    })
+  );
 }
 
 export function unmountDashboard() {}
