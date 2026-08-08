@@ -3,13 +3,7 @@ import { showToast } from "../toast.js";
 import { getProductsByStatus, updateProduct, deleteProduct } from "../db.js";
 
 let rootEl = null;
-let activeObjectUrls = [];
 let sellingId = null; // id of the item currently showing the sell-price form
-
-function revokeAll() {
-  activeObjectUrls.forEach((u) => URL.revokeObjectURL(u));
-  activeObjectUrls = [];
-}
 
 function escapeHtml(s) {
   const div = document.createElement("div");
@@ -24,7 +18,6 @@ export function mountStock(el) {
 }
 
 async function render() {
-  revokeAll();
   rootEl.innerHTML = `<div class="spinner"></div>`;
 
   const items = await getProductsByStatus("in-stock");
@@ -58,14 +51,12 @@ async function render() {
 }
 
 function stockRowHtml(item) {
-  const url = URL.createObjectURL(item.photoBlob);
-  activeObjectUrls.push(url);
   const isSelling = sellingId === item.id;
 
   return `
     <div class="card stock-row">
       <div class="stock-row-top">
-        <img class="stock-thumb" src="${url}" alt="" />
+        <img class="stock-thumb" src="${item.photoDataUrl}" alt="" />
         <div class="item-info">
           <div class="item-title">${escapeHtml(item.name || "بدون اسم")}</div>
           <div class="item-sub">سعر الشراء: ${item.costPrice.toLocaleString("en-US")} · ${item.purchaseDate}</div>
@@ -112,6 +103,4 @@ async function onDelete(id) {
   render();
 }
 
-export function unmountStock() {
-  revokeAll();
-}
+export function unmountStock() {}

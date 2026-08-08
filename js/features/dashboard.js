@@ -3,12 +3,6 @@ import { mountDaySwitcher, getSelectedDate } from "./daySwitcher.js";
 import { getProductsBySoldDate, getProductsByStatus, returnProduct } from "../db.js";
 
 let rootEl = null;
-let activeObjectUrls = [];
-
-function revokeAll() {
-  activeObjectUrls.forEach((u) => URL.revokeObjectURL(u));
-  activeObjectUrls = [];
-}
 
 function escapeHtml(s) {
   const div = document.createElement("div");
@@ -84,7 +78,6 @@ async function renderStats() {
 }
 
 async function renderSoldList(dateKey) {
-  revokeAll();
   const listEl = rootEl.querySelector("#sold-list");
   if (!listEl) return;
 
@@ -96,13 +89,11 @@ async function renderSoldList(dateKey) {
 
   listEl.innerHTML = sold
     .map((p) => {
-      const url = URL.createObjectURL(p.photoBlob);
-      activeObjectUrls.push(url);
       const margin = p.sellPrice - p.costPrice;
       return `
         <div class="card stock-row">
           <div class="stock-row-top">
-            <img class="stock-thumb" src="${url}" alt="" />
+            <img class="stock-thumb" src="${p.photoDataUrl}" alt="" />
             <div class="item-info">
               <div class="item-title">${escapeHtml(p.name || "بدون اسم")}</div>
               <div class="item-sub">شراء: ${p.costPrice.toLocaleString("en-US")} · بيع: ${p.sellPrice.toLocaleString("en-US")}
@@ -127,6 +118,4 @@ async function onReturn(id, dateKey) {
   renderStats();
 }
 
-export function unmountDashboard() {
-  revokeAll();
-}
+export function unmountDashboard() {}

@@ -4,21 +4,12 @@ import { compressPhoto } from "../photo.js";
 import { addProduct } from "../db.js";
 
 let rootEl = null;
-let pendingBlob = null;
-let pendingPreviewUrl = null;
+let pendingPhotoDataUrl = null;
 
 export function mountAddProduct(el) {
   rootEl = el;
-  pendingBlob = null;
-  revokePreview();
+  pendingPhotoDataUrl = null;
   render();
-}
-
-function revokePreview() {
-  if (pendingPreviewUrl) {
-    URL.revokeObjectURL(pendingPreviewUrl);
-    pendingPreviewUrl = null;
-  }
 }
 
 function render() {
@@ -27,17 +18,17 @@ function render() {
       <input type="file" accept="image/*" capture="environment" id="camera-input"
         style="position:absolute; opacity:0; width:1px; height:1px; overflow:hidden; pointer-events:none;" />
       ${
-        pendingBlob
-          ? `<img src="${pendingPreviewUrl}" class="add-preview" alt="" />`
+        pendingPhotoDataUrl
+          ? `<img src="${pendingPhotoDataUrl}" class="add-preview" alt="" />`
           : `<div class="add-placeholder">📷</div>`
       }
       <label for="camera-input" class="btn btn-block" style="margin-top:12px;">
-        ${pendingBlob ? "إعادة التصوير" : "تصوير المنتج"}
+        ${pendingPhotoDataUrl ? "إعادة التصوير" : "تصوير المنتج"}
       </label>
     </div>
 
     ${
-      pendingBlob
+      pendingPhotoDataUrl
         ? `
       <div class="card">
         <form id="add-product-form">
@@ -64,10 +55,7 @@ async function onFileChange(e) {
   if (!file) return;
 
   try {
-    const blob = await compressPhoto(file);
-    pendingBlob = blob;
-    revokePreview();
-    pendingPreviewUrl = URL.createObjectURL(blob);
+    pendingPhotoDataUrl = await compressPhoto(file);
     render();
   } catch (err) {
     showToast("تعذّر معالجة الصورة");
@@ -76,7 +64,7 @@ async function onFileChange(e) {
 
 async function onSubmit(e) {
   e.preventDefault();
-  if (!pendingBlob) return;
+  if (!pendingPhotoDataUrl) return;
 
   const nameInput = rootEl.querySelector("#product-name-input");
   const costInput = rootEl.querySelector("#product-cost-input");
@@ -89,19 +77,18 @@ async function onSubmit(e) {
 
   await addProduct({
     id: crypto.randomUUID(),
-    photoBlob: pendingBlob,
+    photoDataUrl: pendingPhotoDataUrl,
     name: name || null,
     costPrice,
     purchaseDate: storage.todayKey(),
     status: "in-stock",
   });
 
-  pendingBlob = null;
-  revokePreview();
+  pendingPhotoDataUrl = null;
   showToast("تمت إضافة المنتج للمخزون");
   render();
 }
 
 export function unmountAddProduct() {
-  revokePreview();
+  pendingPhotoDataUrl = null;
 }
