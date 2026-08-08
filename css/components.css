@@ -277,6 +277,29 @@
   transform: translateY(0);
 }
 
+/* Segmented control (e.g. الأيام / الأشهر toggle) */
+.segmented {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: var(--space-4);
+}
+
+.seg-btn {
+  flex: 1;
+  padding: var(--space-2);
+  border-radius: calc(var(--radius-sm) - 3px);
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.seg-btn.active {
+  background: var(--surface);
+  color: var(--accent);
+}
+
 /* Month switcher (shared across tabs) */
 .date-switcher {
   display: flex;

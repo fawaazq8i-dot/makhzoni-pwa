@@ -37,6 +37,12 @@ export function formatLabel(dateKey) {
   return `${WEEKDAYS_LONG[dt.getDay()]}، ${d} ${MONTHS[m - 1]}${isToday ? " (اليوم)" : ""}`;
 }
 
+// monthKey is "YYYY-MM" (e.g. the first 7 chars of a dateKey).
+export function formatMonthLabel(monthKey) {
+  const [y, m] = monthKey.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${y}`;
+}
+
 export function mountDaySwitcher(el, onChange) {
   ensureInit();
 
