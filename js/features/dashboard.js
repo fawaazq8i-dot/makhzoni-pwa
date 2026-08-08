@@ -98,6 +98,34 @@ function groupByMonth(sold) {
     .sort((a, b) => b.month.localeCompare(a.month));
 }
 
+// Overall (all-time, not tied to the displayed day) business insights:
+// best-selling product by count, and the strongest/weakest months by net
+// profit. Reuses groupByMonth, so it stays consistent with the الأشهر view.
+async function getInsights() {
+  const sold = await getProductsByStatus("sold");
+  if (!sold.length) return null;
+
+  const nameCounts = {};
+  for (const p of sold) {
+    const key = p.name || "بدون اسم";
+    nameCounts[key] = (nameCounts[key] || 0) + 1;
+  }
+  const [topProductName, topProductCount] = Object.entries(nameCounts).sort((a, b) => b[1] - a[1])[0];
+
+  const monthsByNet = groupByMonth(sold).sort((a, b) => b.profit - b.loss - (a.profit - a.loss));
+  const best = monthsByNet[0];
+  const worst = monthsByNet[monthsByNet.length - 1];
+
+  return {
+    topProductName,
+    topProductCount,
+    bestMonth: best.month,
+    bestMonthNet: best.profit - best.loss,
+    worstMonth: worst.month,
+    worstMonthNet: worst.profit - worst.loss,
+  };
+}
+
 export function mountDashboard(el) {
   rootEl = el;
   showAllView = false;
@@ -132,6 +160,8 @@ function render() {
       <div class="stat-tile"><div class="stat-tile-label">رأس المال الحالي</div><div class="stat-tile-value" id="stat-capital"></div></div>
     </div>
     <p class="card-sub" style="text-align:center;">رأس المال = تكلفة المنتجات الموجودة بالمخزون حاليًا (غير مرتبط باليوم المعروض)</p>
+    <div class="card-title" style="margin-top:16px;">إحصائيات عامة</div>
+    <div class="card" id="insights-card"></div>
     <div class="card-title" style="margin-top:16px;">مبيعات هذا اليوم</div>
     <div id="sold-list"></div>
   `
@@ -160,7 +190,33 @@ async function renderStats() {
   netEl.style.color = net >= 0 ? "var(--green)" : "var(--red)";
   capitalEl.textContent = capital.toLocaleString("en-US");
 
-  await renderSoldList(dateKey);
+  await Promise.all([renderInsights(), renderSoldList(dateKey)]);
+}
+
+async function renderInsights() {
+  const el = rootEl.querySelector("#insights-card");
+  if (!el) return;
+
+  const insights = await getInsights();
+  if (!insights) {
+    el.innerHTML = `<div class="empty-state">لا توجد بيانات كافية بعد</div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="insight-row">
+      <div class="insight-label">🏆 الأكثر مبيعًا</div>
+      <div class="insight-value">${escapeHtml(insights.topProductName)} <span class="badge">${insights.topProductCount} مرة</span></div>
+    </div>
+    <div class="insight-row">
+      <div class="insight-label">📈 أفضل شهر</div>
+      <div class="insight-value">${formatMonthLabel(insights.bestMonth)} <span class="price-box price-box-green">${insights.bestMonthNet.toLocaleString("en-US")}</span></div>
+    </div>
+    <div class="insight-row">
+      <div class="insight-label">📉 أضعف شهر</div>
+      <div class="insight-value">${formatMonthLabel(insights.worstMonth)} <span style="color: var(--red); font-weight:700;">${insights.worstMonthNet.toLocaleString("en-US")}</span></div>
+    </div>
+  `;
 }
 
 async function renderSoldList(dateKey) {

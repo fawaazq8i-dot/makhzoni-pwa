@@ -33,3 +33,30 @@
   padding-inline-start: var(--space-3);
   border-inline-start: 2px solid var(--border);
 }
+
+/* Insights card (best seller, best/worst month) on the main dashboard. */
+.insight-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.insight-row + .insight-row {
+  border-top: 1px solid var(--border);
+}
+
+.insight-label {
+  color: var(--text-dim);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.insight-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  text-align: end;
+}
