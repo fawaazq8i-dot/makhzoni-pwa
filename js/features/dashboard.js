@@ -1,10 +1,17 @@
+import { storage } from "../storage.js";
 import { showToast } from "../toast.js";
 import { mountDaySwitcher, getSelectedDate, setSelectedDate, formatLabel, formatMonthLabel } from "./daySwitcher.js";
-import { getProductsBySoldDate, getProductsByStatus, returnProduct } from "../db.js";
+import {
+  getProductsBySoldDate,
+  getProductsByStatus,
+  returnProduct,
+  recordCapitalSnapshot,
+  getCapitalHistory,
+} from "../db.js";
 
 let rootEl = null;
 let showAllView = false;
-let allViewMode = "day"; // "day" | "month"
+let allViewMode = "day"; // "day" | "month" | "capital"
 let expandedMonth = null;
 
 function escapeHtml(s) {
@@ -174,6 +181,10 @@ async function renderStats() {
   const dateKey = getSelectedDate();
   const { profit, loss } = await getDaySummary(dateKey);
   const capital = await getCurrentCapital();
+  // Upsert today's real calendar date (not the displayed/selected date) —
+  // capital isn't day-scoped, so this keeps a running history of what it
+  // was each day, letting past days stay frozen once the day passes.
+  await recordCapitalSnapshot(storage.todayKey(), capital);
   const net = profit - loss;
 
   const profitEl = rootEl.querySelector("#stat-profit");
@@ -242,6 +253,7 @@ async function renderAllView() {
     <div class="segmented" id="all-view-tabs">
       <button class="seg-btn ${allViewMode === "day" ? "active" : ""}" data-mode="day">الأيام</button>
       <button class="seg-btn ${allViewMode === "month" ? "active" : ""}" data-mode="month">الأشهر</button>
+      <button class="seg-btn ${allViewMode === "capital" ? "active" : ""}" data-mode="capital">رأس المال</button>
     </div>
     <div id="all-list"><div class="spinner"></div></div>
   `;
@@ -258,8 +270,19 @@ async function renderAllView() {
     })
   );
 
-  const sold = await getProductsByStatus("sold");
   const listEl = rootEl.querySelector("#all-list");
+
+  if (allViewMode === "capital") {
+    const history = await getCapitalHistory();
+    if (!history.length) {
+      listEl.innerHTML = `<div class="empty-state">لا يوجد سجل لرأس المال بعد</div>`;
+      return;
+    }
+    renderCapitalRows(listEl, history);
+    return;
+  }
+
+  const sold = await getProductsByStatus("sold");
   if (!sold.length) {
     listEl.innerHTML = `<div class="empty-state">لا توجد مبيعات مسجّلة بعد</div>`;
     return;
@@ -270,6 +293,46 @@ async function renderAllView() {
   } else {
     renderDayRows(listEl, sold);
   }
+}
+
+// history is sorted newest-first (from getCapitalHistory). Each row shows
+// that day's capital plus the delta from the previous recorded day, so the
+// user can see what capital was "before and after" at a glance.
+function renderCapitalRows(listEl, history) {
+  const chronological = [...history].reverse();
+  const diffByDate = {};
+  for (let i = 1; i < chronological.length; i++) {
+    diffByDate[chronological[i].date] = chronological[i].capital - chronological[i - 1].capital;
+  }
+
+  listEl.innerHTML = history
+    .map((entry) => {
+      const diff = diffByDate[entry.date];
+      const diffHtml =
+        diff === undefined
+          ? ""
+          : `<div class="item-sub" style="margin-top:4px; color: var(--${diff >= 0 ? "green" : "red"});">${diff >= 0 ? "+" : ""}${diff.toLocaleString("en-US")} عن اليوم السابق</div>`;
+      return `
+        <button class="card all-days-row" data-date="${entry.date}">
+          <div class="item-info">
+            <div class="item-title">${formatLabel(entry.date)}</div>
+            ${diffHtml}
+          </div>
+          <div class="all-days-amounts">
+            <div class="price-box price-box-green">${entry.capital.toLocaleString("en-US")}</div>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+
+  listEl.querySelectorAll(".all-days-row[data-date]").forEach((row) =>
+    row.addEventListener("click", () => {
+      setSelectedDate(row.dataset.date);
+      showAllView = false;
+      render();
+    })
+  );
 }
 
 function renderDayRows(listEl, sold) {

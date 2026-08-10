@@ -1,7 +1,8 @@
 const DB_NAME = "makhzoni-db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const PRODUCTS_STORE = "products";
 const LOCATIONS_STORE = "locations";
+const CAPITAL_HISTORY_STORE = "capitalHistory";
 
 let dbPromise = null;
 
@@ -18,6 +19,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(LOCATIONS_STORE)) {
         db.createObjectStore(LOCATIONS_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(CAPITAL_HISTORY_STORE)) {
+        db.createObjectStore(CAPITAL_HISTORY_STORE, { keyPath: "date" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -114,4 +118,17 @@ export async function deleteLocation(id) {
     }
   }
   return wrap((await getStore(LOCATIONS_STORE, "readwrite")).delete(id));
+}
+
+// One record per calendar day (keyPath "date" — upsert-by-day). Called every
+// time the dashboard computes current capital, so "today"'s entry always
+// reflects the latest live value while past days stay frozen at whatever
+// they were the last time the app was open that day.
+export async function recordCapitalSnapshot(dateKey, capital) {
+  return wrap((await getStore(CAPITAL_HISTORY_STORE, "readwrite")).put({ date: dateKey, capital }));
+}
+
+export async function getCapitalHistory() {
+  const all = await wrap((await getStore(CAPITAL_HISTORY_STORE, "readonly")).getAll());
+  return all.sort((a, b) => b.date.localeCompare(a.date));
 }

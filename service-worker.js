@@ -1,5 +1,5 @@
 // Bump this on any deploy that changes a precached file below.
-const CACHE_VERSION = "v10";
+const CACHE_VERSION = "v11";
 const PRECACHE = `makhzoni-precache-${CACHE_VERSION}`;
 const RUNTIME = `makhzoni-runtime-${CACHE_VERSION}`;
 
